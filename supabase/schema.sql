@@ -38,13 +38,38 @@ create table if not exists public.comments (
   created_at timestamptz not null default now()
 );
 
+-- Views: one row per meaningful watch session.
+create table if not exists public.video_views (
+  id uuid primary key default uuid_generate_v4(),
+  drive_file_id text not null,
+  viewer_key text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists video_views_file_idx on public.video_views (drive_file_id);
+create index if not exists video_views_key_idx on public.video_views (viewer_key, drive_file_id);
+
+-- Likes: one row per device/browser key per video.
+create table if not exists public.video_likes (
+  drive_file_id text not null,
+  liker_key text not null,
+  created_at timestamptz not null default now(),
+  primary key (drive_file_id, liker_key)
+);
+
 alter table public.site_settings enable row level security;
 alter table public.video_metadata enable row level security;
 alter table public.comments enable row level security;
+alter table public.video_views enable row level security;
+alter table public.video_likes enable row level security;
 
 create policy "public settings read" on public.site_settings for select using (true);
 create policy "public published video metadata read" on public.video_metadata for select using (published = true);
 create policy "public approved comments read" on public.comments for select using (approved = true);
 create policy "public comment submission" on public.comments for insert with check (approved = false);
+create policy "public view count read" on public.video_views for select using (true);
+create policy "public view insert" on public.video_views for insert with check (true);
+create policy "public like count read" on public.video_likes for select using (true);
+create policy "public like insert" on public.video_likes for insert with check (true);
+create policy "public like delete" on public.video_likes for delete using (true);
 
 -- Admin writes are performed only from server routes using the service role key.

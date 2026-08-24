@@ -1,26 +1,272 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-type Video = { id: string; name: string; createdTime: string; thumbnailLink?: string };
+import { cleanTitleFromFilename, formatCount, formatDate, getWatchHistory } from "@/lib/utils";
+import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
+
+type Video = {
+  id: string;
+  name: string;
+  createdTime: string;
+  thumbnailLink?: string;
+  webViewLink?: string;
+  meta?: {
+    title?: string;
+    description_markdown?: string;
+    category?: string;
+    thumbnail_url?: string;
+    playback_url?: string;
+    featured?: boolean;
+    published?: boolean;
+    display_order?: number;
+    allow_download?: boolean;
+  } | null;
+  views?: number;
+  likes?: number;
+};
+
+const CATEGORIES = ["All", "Featured", "Praise Night", "Worship", "Choir"];
+
+type SiteSettings = {
+  church_name?: string;
+  media_name?: string;
+  logo_url?: string;
+  hero_title?: string;
+  hero_description?: string;
+  footer_text?: string;
+  social_links?: Record<string, string> | null;
+};
 
 export default function MediaGallery() {
-  const [videos, setVideos] = useState<Video[]>([]); const [query, setQuery] = useState(""); const [error, setError] = useState(""); const [active, setActive] = useState<Video | null>(null); const [loading, setLoading] = useState(true);
-  useEffect(() => { fetch("/api/videos").then(async (r) => { const body = await r.json(); if (!r.ok) throw new Error(body.error); setVideos(body.videos); }).catch((e) => setError(e.message)).finally(() => setLoading(false)); }, []);
-  const visible = useMemo(() => videos.filter((video) => video.name.toLowerCase().includes(query.toLowerCase())), [videos, query]);
-  const date = (value: string) => new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
-  return <>
-    <header className="header"><a href="#top" className="wordmark"><b>FOURSQUARE</b><span>GOSPEL CHURCH</span></a><nav><a href="#videos">Videos</a><a href="#about">About</a><a href="#connect">Connect</a></nav><a className="header-link" href="#videos">Browse media <span>↗</span></a></header>
-    <main id="top">
-      <section className="hero"><div><p className="kicker">Foursquare Media Gallery</p><h1>Worship worth<br /><em>revisiting.</em></h1><p className="lede">A dedicated home for Foursquare Gospel Church videos, available to watch, download, and share.</p><a className="button primary" href="#videos">Explore recordings <span>↓</span></a></div><div className="hero-frame"><div className="light light-one"/><div className="light light-two"/><div className="frame-copy"><span>FOURSQUARE</span><strong>Media<br />Gallery</strong><small>Every recording, in one place.</small></div></div></section>
-      <section className="gallery" id="videos"><div className="heading"><div><p className="kicker">Media library</p><h2>Watch the latest.</h2></div><label className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search recordings" aria-label="Search recordings" /></label></div>
-        {loading && <div className="video-grid" aria-label="Loading videos">{[1,2,3,4].map((item) => <div className="skeleton" key={item}/>)}</div>}
-        {!loading && error && <div className="state error"><strong>We could not load the media folder.</strong><p>{error}</p><p>Set the Google Drive values in <code>.env.local</code>, then restart the site.</p></div>}
-        {!loading && !error && visible.length === 0 && <div className="state"><strong>{videos.length ? "No recordings match your search." : "The gallery is ready for its first recording."}</strong><p>{videos.length ? "Try another search term." : "When a video is uploaded to the connected Drive folder, it will appear here automatically."}</p></div>}
-        {!loading && !error && visible.length > 0 && <div className="video-grid">{visible.map((video) => <article className="video" key={video.id}><button className="thumbnail" onClick={() => setActive(video)} aria-label={`Watch ${video.name}`}>{video.thumbnailLink ? <img src={video.thumbnailLink} alt="" /> : <div className="thumbnail-fallback"/>}<span className="play">▶</span></button><div className="video-meta"><h3>{video.name}</h3><p>Foursquare Gospel Church <span>•</span> {date(video.createdTime)}</p><div><span>Views and reactions available soon</span><button aria-label={`Like ${video.name}`}>♡</button></div></div></article>)}</div>}
-      </section>
-      <section className="about" id="about"><p className="kicker">Made for the moments</p><h2>One place for every gathering.</h2><p>New uploads are discovered from the church media folder and presented here for a simple, uninterrupted viewing experience.</p></section>
-    </main>
-    <footer id="connect"><div className="wordmark"><b>FOURSQUARE</b><span>GOSPEL CHURCH</span></div><div><p className="footer-title">Stay connected</p><a href="mailto:media@foursquaregospelchurch.org">media@foursquaregospelchurch.org</a><a href="#top">Facebook</a><a href="#top">Instagram</a><a href="#top">YouTube</a></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Foursquare Gospel Church</span><span>Built by Bluezo Tech</span></div></footer>
-    {active && <div className="modal" role="dialog" aria-modal="true" aria-label={active.name}><button className="close" onClick={() => setActive(null)} aria-label="Close player">×</button><div className="player"><iframe src={`https://drive.google.com/file/d/${active.id}/preview`} title={active.name} allow="autoplay" allowFullScreen /></div><div className="modal-footer"><div><p className="kicker">Now playing</p><h2>{active.name}</h2></div><a className="button primary" href={`https://drive.usercontent.google.com/download?id=${active.id}&export=download&confirm=t`} target="_blank" rel="noreferrer">Download <span>↓</span></a></div></div>}
-  </>;
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [settings, setSettings] = useState<SiteSettings>({});
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [history, setHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/videos")
+      .then(async (r) => {
+        const body = await r.json();
+        if (!r.ok) throw new Error(body.error);
+        setVideos(body.videos ?? []);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+
+    // CMS site settings (church name, hero copy, footer, social links).
+    // Falls back to built-in defaults when Supabase is not configured.
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((b) => {
+        if (b?.settings) setSettings(b.settings);
+      })
+      .catch(() => {});
+
+    // "Continue watching" is a per-device progressive enhancement.
+    setHistory(getWatchHistory());
+
+    // Deep-linkable category filter (footer "Media" links).
+    const params = new URLSearchParams(window.location.search);
+    const cat = params.get("category");
+    if (cat && CATEGORIES.includes(cat)) setActiveCategory(cat);
+  }, []);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return videos.filter((video) => {
+      // CMS "published = false" hides the video from the public gallery.
+      if (video.meta?.published === false) return false;
+      const title = video.meta?.title || cleanTitleFromFilename(video.name);
+      const category = video.meta?.category || "";
+      const matchesQuery =
+        !q || title.toLowerCase().includes(q) || category.toLowerCase().includes(q) || video.name.toLowerCase().includes(q);
+      const matchesCategory =
+        activeCategory === "All" ||
+        (activeCategory === "Featured" && video.meta?.featured) ||
+        (activeCategory !== "Featured" && category.toLowerCase() === activeCategory.toLowerCase());
+      return matchesQuery && matchesCategory;
+    });
+  }, [videos, query, activeCategory]);
+
+  const publishedVideos = useMemo(() => videos.filter((v) => v.meta?.published !== false), [videos]);
+  const featured = useMemo(() => publishedVideos.find((v) => v.meta?.featured) ?? publishedVideos[0], [publishedVideos]);
+
+  // Horizontal rails: recent watch history + all featured videos (when there
+  // are enough to make a rail worthwhile beyond the hero).
+  const continueWatching = useMemo(() => {
+    const byId = new Map(videos.map((v) => [v.id, v]));
+    return history.map((id) => byId.get(id)).filter((v): v is Video => v !== undefined && v.meta?.published !== false);
+  }, [history, videos]);
+
+  const featuredRail = useMemo(() => publishedVideos.filter((v) => v.meta?.featured), [publishedVideos]);
+
+  const renderRailCard = (video: Video) => {
+    const title = video.meta?.title || cleanTitleFromFilename(video.name);
+    const thumb = video.meta?.thumbnail_url || video.thumbnailLink;
+    return (
+      <a className="rail-card" key={video.id} href={`/watch/${video.id}`}>
+        <div className="rail-thumb">
+          {thumb ? <img src={thumb} alt="" loading="lazy" /> : <div className="thumbnail-fallback" />}
+          <span className="play">▶</span>
+        </div>
+        <div className="rail-meta">
+          <strong>{title}</strong>
+          <span>{formatDate(video.createdTime)}</span>
+        </div>
+      </a>
+    );
+  };
+
+  return (
+    <>
+      <SiteHeader />
+
+      <main id="top">
+        <section className="hero">
+          <div className="hero-copy">
+            <p className="kicker">{settings.church_name || "Foursquare Gospel Church"}</p>
+            <h1>{settings.hero_title ? settings.hero_title : <>Praise Night,<br /><em>preserved.</em></>}</h1>
+            <p className="lede">
+              {settings.hero_description ||
+                "A dedicated archive of every Praise Night recording — watch, download, and share the moments that moved us."}
+            </p>
+            <div className="hero-actions">
+              <a className="button primary" href="#library">Explore the library <span>↓</span></a>
+              {featured && (
+                <a className="button ghost" href={`/watch/${featured.id}`}>▶ Watch featured</a>
+              )}
+            </div>
+          </div>
+          {featured && (
+            <a className="hero-feature" href={`/watch/${featured.id}`}>
+              <div className="hero-feature-media">
+                {featured.meta?.thumbnail_url || featured.thumbnailLink ? (
+                  <img src={featured.meta?.thumbnail_url || featured.thumbnailLink} alt="" />
+                ) : (
+                  <div className="thumbnail-fallback" />
+                )}
+                <div className="hero-feature-overlay" />
+                <span className="hero-play">▶</span>
+                <div className="hero-feature-label">
+                  <span className="kicker">Featured</span>
+                  <strong>{featured.meta?.title || cleanTitleFromFilename(featured.name)}</strong>
+                  <small>{formatDate(featured.createdTime)}</small>
+                </div>
+              </div>
+            </a>
+          )}
+        </section>
+
+        {continueWatching.length > 0 && (
+          <section className="rail-section" aria-label="Continue watching">
+            <div className="rail-head">
+              <p className="kicker">Pick up where you left off</p>
+              <h2>Continue watching</h2>
+            </div>
+            <div className="rail-track">{continueWatching.map(renderRailCard)}</div>
+          </section>
+        )}
+
+        {featuredRail.length >= 2 && (
+          <section className="rail-section" aria-label="Featured videos">
+            <div className="rail-head">
+              <p className="kicker">Curated for you</p>
+              <h2>Featured</h2>
+            </div>
+            <div className="rail-track">{featuredRail.map(renderRailCard)}</div>
+          </section>
+        )}
+
+        <section className="library" id="library">
+          <div className="library-head">
+            <div>
+              <p className="kicker">Media library</p>
+              <h2>Every recording.</h2>
+            </div>
+            <label className="search">
+              <span>⌕</span>
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search recordings" aria-label="Search recordings" />
+            </label>
+          </div>
+
+          <div className="filter-chips" role="tablist" aria-label="Filter videos">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                className={`chip ${activeCategory === cat ? "active" : ""}`}
+                onClick={() => setActiveCategory(cat)}
+                role="tab"
+                aria-selected={activeCategory === cat}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {loading && (
+            <div className="video-grid" aria-label="Loading videos">
+              {[1, 2, 3, 4, 5, 6].map((item) => (
+                <div className="skeleton" key={item} />
+              ))}
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="state error">
+              <strong>We could not load the media folder.</strong>
+              <p>{error}</p>
+              <p>Set the Google Drive values in <code>.env.local</code>, then restart the site.</p>
+            </div>
+          )}
+
+          {!loading && !error && visible.length === 0 && (
+            <div className="state">
+              <strong>{videos.length ? "No recordings match your search." : "The gallery is ready for its first recording."}</strong>
+              <p>{videos.length ? "Try another search term or filter." : "When a video is uploaded to the connected Drive folder, it will appear here automatically."}</p>
+            </div>
+          )}
+
+          {!loading && !error && visible.length > 0 && (
+            <div className="video-grid">
+              {visible.map((video) => {
+                const title = video.meta?.title || cleanTitleFromFilename(video.name);
+                const thumbnail = video.meta?.thumbnail_url || video.thumbnailLink;
+                const category = video.meta?.category;
+                return (
+                  <article className="video-card" key={video.id}>
+                    <a className="video-thumb" href={`/watch/${video.id}`} aria-label={`Watch ${title}`}>
+                      {thumbnail ? <img src={thumbnail} alt="" loading="lazy" /> : <div className="thumbnail-fallback" />}
+                      <div className="video-overlay" />
+                      <span className="play">▶</span>
+                      {category && <span className="video-badge">{category}</span>}
+                    </a>
+                    <div className="video-meta">
+                      <h3><a className="video-title-btn" href={`/watch/${video.id}`}>{title}</a></h3>
+                      <p>{formatDate(video.createdTime)}</p>
+                      <div className="video-stats">
+                        <span>👁 {formatCount(video.views ?? 0)}</span>
+                        <span>♥ {formatCount(video.likes ?? 0)}</span>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="about" id="about">
+          <p className="kicker">Made for the moments</p>
+          <h2>One place for every gathering.</h2>
+          <p>New uploads are discovered from the church media folder and presented here for a simple, uninterrupted viewing experience.</p>
+        </section>
+      </main>
+
+      <SiteFooter />
+    </>
+  );
 }

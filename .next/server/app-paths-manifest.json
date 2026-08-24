@@ -1,5 +1,9 @@
 {
+  "/api/settings/route": "app/api/settings/route.js",
   "/api/videos/route": "app/api/videos/route.js",
-  "/_not-found/page": "app/_not-found/page.js",
+  "/api/videos/[id]/comments/route": "app/api/videos/[id]/comments/route.js",
+  "/api/videos/[id]/like/route": "app/api/videos/[id]/like/route.js",
+  "/api/drive-stream/[fileId]/route": "app/api/drive-stream/[fileId]/route.js",
+  "/watch/[id]/page": "app/watch/[id]/page.js",
   "/page": "app/page.js"
 }

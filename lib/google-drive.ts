@@ -1,8 +1,18 @@
 import { GoogleAuth } from "google-auth-library";
 
-export type DriveVideo = { id: string; name: string; createdTime: string; thumbnailLink?: string; webViewLink?: string };
+export type DriveVideo = {
+  id: string;
+  name: string;
+  createdTime: string;
+  thumbnailLink?: string;
+  webViewLink?: string;
+  /** Natural pixel dimensions from Drive's videoMediaMetadata (when available). */
+  width?: number;
+  height?: number;
+};
 
-const fields = "files(id,name,mimeType,createdTime,thumbnailLink,webViewLink,description)";
+const fields =
+  "files(id,name,mimeType,createdTime,thumbnailLink,webViewLink,description,videoMediaMetadata(width,height,durationMillis))";
 const getFolderId = (value: string) => value.match(/folders\/([^/?]+)/)?.[1] ?? value.trim();
 
 export async function getDriveVideos(): Promise<DriveVideo[]> {
@@ -25,9 +35,17 @@ export async function getDriveVideos(): Promise<DriveVideo[]> {
     const details = await response.json().catch(() => null) as { error?: { message?: string } } | null;
     throw new Error(details?.error?.message ?? "Google Drive could not be reached. Check that the folder is shared with the service account.");
   }
-  const data = await response.json() as { files?: DriveVideo[] };
-  return data.files ?? [];
+  const data = await response.json() as { files?: (DriveVideo & { videoMediaMetadata?: { width?: number; height?: number } })[] };
+  return (data.files ?? []).map((file) => {
+    const { videoMediaMetadata, ...rest } = file;
+    return {
+      ...rest,
+      width: videoMediaMetadata?.width,
+      height: videoMediaMetadata?.height,
+    };
+  });
 }
 
 export const getEmbedUrl = (fileId: string) => `https://drive.google.com/file/d/${fileId}/preview`;
 export const getDownloadUrl = (fileId: string) => `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+export const getStreamUrl = (fileId: string) => `/api/drive-stream/${fileId}`;
