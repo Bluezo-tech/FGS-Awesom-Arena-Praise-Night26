@@ -23,6 +23,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ views: count ?? 0 });
   } catch (error) {
     // Supabase is optional; return a graceful response when not configured.
-    return NextResponse.json({ views: 0, error: error instanceof Error ? error.message : "Unable to register view." }, { status: 200 });
+    return NextResponse.json({ views: 0, error: error instanceof Error ? error.message : (error as { message?: string })?.message || "Unable to register view." }, { status: 200 });
   }
 }

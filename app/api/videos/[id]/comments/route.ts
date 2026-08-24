@@ -15,7 +15,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     return NextResponse.json({ comments: data ?? [] });
   } catch (error) {
     // Supabase is optional; return empty comments when not configured.
-    return NextResponse.json({ comments: [], error: error instanceof Error ? error.message : "Unable to load comments." }, { status: 200 });
+    return NextResponse.json({ comments: [], error: error instanceof Error ? error.message : (error as { message?: string })?.message || "Unable to load comments." }, { status: 200 });
   }
 }
 
@@ -30,12 +30,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const db = getSupabaseAdmin();
     const { data, error } = await db
       .from("comments")
-      .insert({ drive_file_id: id, display_name: displayName, body: commentBody, approved: false })
+      .insert({ drive_file_id: id, display_name: displayName, body: commentBody, approved: true })
       .select("id, display_name, body, created_at")
       .single();
     if (error) throw error;
     return NextResponse.json({ comment: data }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to submit comment." }, { status: 400 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : (error as { message?: string })?.message || "Unable to submit comment." }, { status: 400 });
   }
 }

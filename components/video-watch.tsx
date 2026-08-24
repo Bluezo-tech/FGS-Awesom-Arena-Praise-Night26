@@ -59,6 +59,7 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
       const res = await fetch("/api/videos");
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
+      if (!res.ok) throw new Error(body.error);
       const all: Video[] = body.videos ?? [];
       const found = all.find((v) => v.id === videoId);
       if (!found) throw new Error("Video not found.");
@@ -86,6 +87,7 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
     try {
       const res = await fetch(`/api/videos/${videoId}/comments`);
       const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
       if (res.ok) setComments(body.comments ?? []);
     } catch {
       // ignore
@@ -118,6 +120,7 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
       headers: { "x-liker-key": getDeviceKey() },
     });
     const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
     if (res.ok) {
       setLikes(body.likes ?? likes);
       setLiked(body.liked ?? !liked);
@@ -135,8 +138,10 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
+      setComments((prev) => [body.comment, ...prev]);
+      setName("");
       setComment("");
-      setCommentNotice("Thanks! Your comment will appear once approved.");
+      setCommentNotice("Comment posted!");
     } catch (err) {
       setCommentNotice(err instanceof Error ? err.message : "Could not submit comment.");
     }
