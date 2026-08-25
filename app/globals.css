@@ -1120,3 +1120,65 @@ h1, h2, h3, p, a, li, strong, span, code, .watch-description p, .comment p, .vid
   display: grid;
   gap: 12px;
 }
+
+/* Comment threads with avatars and replies */
+.comment-thread { display: grid; gap: 10px; }
+.comment {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.comment-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #14120c;
+}
+.comment-avatar-sm { width: 28px; height: 28px; font-size: 12px; }
+.comment-body { flex: 1; min-width: 0; }
+
+.comment-reply-btn {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.comment-reply-btn:hover { color: var(--accent); }
+
+.reply-form {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  max-width: 480px;
+}
+.reply-form input, .reply-form textarea {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  font-size: 13px;
+}
+.reply-form input:focus, .reply-form textarea:focus { border-color: var(--accent); outline: none; }
+.reply-form textarea { min-height: 60px; resize: vertical; }
+.reply-form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+.comment-replies {
+  margin-left: 48px;
+  padding-left: 16px;
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 12px;
+}
