@@ -1031,3 +1031,30 @@ h1, h2, h3, p, a, li, strong, span, code, .watch-description p, .comment p, .vid
   font-weight: 800;
   font-size: 0.65rem;
 }
+
+/* Comments section — give the whole block a defined card frame */
+.comments-section {
+  margin-top: 40px;
+  margin-bottom: 8px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.comments-toggle {
+  padding: 4px 0;
+  border-radius: 10px;
+  transition: opacity 0.15s ease;
+}
+.comments-toggle:hover { opacity: 0.85; }
+.comments-toggle:hover .comments-chevron { color: var(--accent); }
+.comments-toggle h2 { font-size: 18px; }
+
+.comment-form { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+.comments-list { margin-top: 22px; }
+
+.comments-load-more {
+  display: block;
+  margin: 18px auto 0;
+}
