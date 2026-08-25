@@ -39,6 +39,23 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+function timeAgo(dateString: string) {
+  const diffMs = Date.now() - new Date(dateString).getTime();
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return "now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d`;
+  const week = Math.floor(day / 7);
+  if (week < 4) return `${week}w`;
+  const month = Math.floor(day / 30);
+  if (month < 12) return `${month}mo`;
+  return `${Math.floor(day / 365)}y`;
+}
+
 export default function VideoWatch({ videoId }: { videoId: string }) {
   const [video, setVideo] = useState<Video | null>(null);
   const [related, setRelated] = useState<Video[]>([]);
@@ -407,7 +424,7 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
                           <div className="comment-body">
                             <div className="comment-head">
                               <strong>{c.display_name}</strong>
-                              <span>{formatDate(c.created_at)}</span>
+                              <span>{timeAgo(c.created_at)}</span>
                             </div>
                             <p>{c.body}</p>
                             <button
@@ -453,7 +470,7 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
                                 <div className="comment-body">
                                   <div className="comment-head">
                                     <strong>{r.display_name}</strong>
-                                    <span>{formatDate(r.created_at)}</span>
+                                    <span>{timeAgo(r.created_at)}</span>
                                   </div>
                                   <p>{r.body}</p>
                                 </div>

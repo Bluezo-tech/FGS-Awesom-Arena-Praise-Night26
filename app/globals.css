@@ -1182,3 +1182,16 @@ h1, h2, h3, p, a, li, strong, span, code, .watch-description p, .comment p, .vid
   display: grid;
   gap: 12px;
 }
+
+/* X/IG-style comment feed - no card boxes, hairline dividers, inline name+time */
+.comment-thread { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.comment-thread:last-child { border-bottom: none; }
+.comment { background: transparent; border: none; padding: 0; }
+.comment-avatar { width: 40px; height: 40px; font-size: 15px; }
+.comment-avatar-sm { width: 32px; height: 32px; font-size: 13px; }
+.comment-head { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 2px; }
+.comment-head strong { font-size: 14px; }
+.comment-head span { font-size: 12px; }
+.comment p { font-size: 14px; line-height: 1.45; margin-top: 2px; }
+.comment-reply-btn { margin-top: 8px; font-size: 11px; }
+.comment-replies { margin-top: 10px; }
