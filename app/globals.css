@@ -555,6 +555,39 @@ h1, h2, h3, p, a, li, strong, span, code, .watch-description p, .comment p, .vid
 
 /* ---------- Comments ---------- */
 .comments-section { margin-top: 36px; }
+.comments-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.comments-toggle h2 { margin: 0; }
+.comments-chevron {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+.comments-chevron.open { transform: rotate(180deg); }
+.comments-load-more {
+  margin-top: 16px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.comments-load-more:hover { border-color: var(--accent); color: var(--accent); }
 .comment-form { display: grid; gap: 12px; max-width: 560px; }
 .comment-form input, .comment-form textarea {
   padding: 12px 14px;

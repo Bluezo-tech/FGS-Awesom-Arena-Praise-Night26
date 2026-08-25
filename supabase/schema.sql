@@ -56,11 +56,20 @@ create table if not exists public.video_likes (
   primary key (drive_file_id, liker_key)
 );
 
+-- Shares: one row per share action (a person can share the same video more than once).
+create table if not exists public.video_shares (
+  id uuid primary key default uuid_generate_v4(),
+  drive_file_id text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists video_shares_file_idx on public.video_shares (drive_file_id);
+
 alter table public.site_settings enable row level security;
 alter table public.video_metadata enable row level security;
 alter table public.comments enable row level security;
 alter table public.video_views enable row level security;
 alter table public.video_likes enable row level security;
+alter table public.video_shares enable row level security;
 
 create policy "public settings read" on public.site_settings for select using (true);
 create policy "public published video metadata read" on public.video_metadata for select using (published = true);
@@ -71,5 +80,7 @@ create policy "public view insert" on public.video_views for insert with check (
 create policy "public like count read" on public.video_likes for select using (true);
 create policy "public like insert" on public.video_likes for insert with check (true);
 create policy "public like delete" on public.video_likes for delete using (true);
+create policy "public share count read" on public.video_shares for select using (true);
+create policy "public share insert" on public.video_shares for insert with check (true);
 
 -- Admin writes are performed only from server routes using the service role key.

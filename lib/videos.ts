@@ -23,6 +23,7 @@ export type MergedVideo = {
   meta?: Record<string, any> | null;
   views?: number;
   likes?: number;
+  shares?: number;
 };
 
 export async function getMergedVideos(): Promise<MergedVideo[]> {
@@ -30,13 +31,15 @@ export async function getMergedVideos(): Promise<MergedVideo[]> {
   let metadata: Record<string, any> = {};
   let views: Record<string, number> = {};
   let likes: Record<string, number> = {};
+  let shares: Record<string, number> = {};
 
   try {
     const db = getSupabaseAdmin();
-    const [metaRes, viewRes, likeRes] = await Promise.all([
+    const [metaRes, viewRes, likeRes, shareRes] = await Promise.all([
       db.from("video_metadata").select("*"),
       db.from("video_views").select("drive_file_id"),
       db.from("video_likes").select("drive_file_id"),
+      db.from("video_shares").select("drive_file_id"),
     ]);
     if (!metaRes.error) metadata = Object.fromEntries((metaRes.data ?? []).map((m: any) => [m.drive_file_id, m]));
     if (!viewRes.error)
@@ -49,6 +52,11 @@ export async function getMergedVideos(): Promise<MergedVideo[]> {
         acc[l.drive_file_id] = (acc[l.drive_file_id] ?? 0) + 1;
         return acc;
       }, {});
+    if (!shareRes.error)
+      shares = (shareRes.data ?? []).reduce((acc: Record<string, number>, s: any) => {
+        acc[s.drive_file_id] = (acc[s.drive_file_id] ?? 0) + 1;
+        return acc;
+      }, {});
   } catch {
     // Supabase optional; gallery still works with Drive-only data.
   }
@@ -58,6 +66,7 @@ export async function getMergedVideos(): Promise<MergedVideo[]> {
     meta: metadata[video.id] ?? null,
     views: views[video.id] ?? 0,
     likes: likes[video.id] ?? 0,
+    shares: shares[video.id] ?? 0,
   }));
 
   // Apply CMS display_order: videos with an explicit order appear first

@@ -27,6 +27,7 @@ type Video = {
   } | null;
   views?: number;
   likes?: number;
+  shares?: number;
 };
 
 type Comment = { id: string; display_name: string; body: string; created_at: string };
@@ -35,11 +36,14 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
   const [video, setVideo] = useState<Video | null>(null);
   const [related, setRelated] = useState<Video[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [showComments, setShowComments] = useState(false);
+  const [visibleComments, setVisibleComments] = useState(5);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(0);
   const [views, setViews] = useState(0);
+  const [shares, setShares] = useState(0);
   const [name, setName] = useState("");
   const [comment, setComment] = useState("");
   const [commentNotice, setCommentNotice] = useState("");
@@ -59,13 +63,13 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
       const res = await fetch("/api/videos");
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
-      if (!res.ok) throw new Error(body.error);
       const all: Video[] = body.videos ?? [];
       const found = all.find((v) => v.id === videoId);
       if (!found) throw new Error("Video not found.");
       setVideo(found);
       setLikes(found.likes ?? 0);
       setViews(found.views ?? 0);
+      setShares(found.shares ?? 0);
       setRelated(all.filter((v) => v.id !== videoId && v.meta?.published !== false).slice(0, 6));
       addToWatchHistory(videoId);
 
@@ -120,7 +124,6 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
       headers: { "x-liker-key": getDeviceKey() },
     });
     const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
     if (res.ok) {
       setLikes(body.likes ?? likes);
       setLiked(body.liked ?? !liked);
@@ -172,6 +175,18 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
     }
   }, []);
 
+  // Record a share action (best-effort; a person can share more than once).
+  const recordShare = useCallback(async () => {
+    if (!video) return;
+    try {
+      const res = await fetch(`/api/videos/${video.id}/share`, { method: "POST" });
+      const body = await res.json();
+      if (typeof body.shares === "number") setShares(body.shares);
+    } catch {
+      // ignore — share tracking is best-effort and must not block sharing
+    }
+  }, [video]);
+
   const handleShare = useCallback(async () => {
     if (!video) return;
     const shareUrl = `${window.location.origin}/watch/${video.id}`;
@@ -184,6 +199,7 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: videoTitle, text: videoDescription, url: shareUrl });
+        await recordShare();
         return;
       } catch (err) {
         const name = (err as { name?: string } | null)?.name;
@@ -191,15 +207,16 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
       }
     }
     setShareOpen(true);
-  }, [video]);
+  }, [video, recordShare]);
 
   const handleCopyLink = useCallback(async () => {
     if (!video) return;
     const shareUrl = `${window.location.origin}/watch/${video.id}`;
     const copied = await copyToClipboard(shareUrl);
+    if (copied) await recordShare();
     showToast(copied ? "Link copied" : "Could not copy the link.");
     setShareOpen(false);
-  }, [video, copyToClipboard, showToast]);
+  }, [video, copyToClipboard, showToast, recordShare]);
 
   useEffect(() => {
     if (!shareOpen) return;
@@ -307,6 +324,7 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
             <span>👁 {formatCount(views)} views</span>
             <span>♥ {formatCount(likes)} likes</span>
             <span>💬 {comments.length} comments</span>
+            <span>↗ {formatCount(shares)} shares</span>
           </div>
 
           {video.meta?.description_markdown && (
@@ -317,39 +335,60 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
           )}
 
           <div className="comments-section">
-            <h2>Comments</h2>
-            <form className="comment-form" onSubmit={handleComment}>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                required
-                minLength={2}
-                maxLength={80}
-              />
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Share your thoughts…"
-                required
-                minLength={2}
-                maxLength={2000}
-              />
-              <button className="button primary" type="submit">Post comment</button>
-            </form>
-            {commentNotice && <p className="comment-notice">{commentNotice}</p>}
-            <div className="comments-list">
-              {comments.length === 0 && <p className="no-comments">No comments yet. Be the first to share your thoughts.</p>}
-              {comments.map((c) => (
-                <div className="comment" key={c.id}>
-                  <div className="comment-head">
-                    <strong>{c.display_name}</strong>
-                    <span>{formatDate(c.created_at)}</span>
-                  </div>
-                  <p>{c.body}</p>
+            <button
+              type="button"
+              className="comments-toggle"
+              onClick={() => setShowComments((v) => !v)}
+              aria-expanded={showComments}
+            >
+              <h2>Comments ({comments.length})</h2>
+              <span className={`comments-chevron ${showComments ? "open" : ""}`} aria-hidden>⌄</span>
+            </button>
+            {showComments && (
+              <>
+                <form className="comment-form" onSubmit={handleComment}>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                    required
+                    minLength={2}
+                    maxLength={80}
+                  />
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Share your thoughts…"
+                    required
+                    minLength={2}
+                    maxLength={2000}
+                  />
+                  <button className="button primary" type="submit">Post comment</button>
+                </form>
+                {commentNotice && <p className="comment-notice">{commentNotice}</p>}
+                <div className="comments-list">
+                  {comments.length === 0 && <p className="no-comments">No comments yet. Be the first to share your thoughts.</p>}
+                  {comments.slice(0, visibleComments).map((c) => (
+                    <div className="comment" key={c.id}>
+                      <div className="comment-head">
+                        <strong>{c.display_name}</strong>
+                        <span>{formatDate(c.created_at)}</span>
+                      </div>
+                      <p>{c.body}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+                {comments.length > visibleComments && (
+                  <button
+                    type="button"
+                    className="comments-load-more"
+                    onClick={() => setVisibleComments((v) => v + 5)}
+                  >
+                    Show more comments
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -396,15 +435,15 @@ export default function VideoWatch({ videoId }: { videoId: string }) {
                 <span className="share-opt-icon" aria-hidden>🔗</span>
                 <span>Copy link</span>
               </button>
-              <a className="share-option" href={whatsappHref} target="_blank" rel="noopener noreferrer" onClick={() => setShareOpen(false)}>
+              <a className="share-option" href={whatsappHref} target="_blank" rel="noopener noreferrer" onClick={() => { recordShare(); setShareOpen(false); }}>
                 <span className="share-opt-icon" aria-hidden>💬</span>
                 <span>WhatsApp</span>
               </a>
-              <a className="share-option" href={facebookHref} target="_blank" rel="noopener noreferrer" onClick={() => setShareOpen(false)}>
+              <a className="share-option" href={facebookHref} target="_blank" rel="noopener noreferrer" onClick={() => { recordShare(); setShareOpen(false); }}>
                 <span className="share-opt-icon" aria-hidden>📘</span>
                 <span>Facebook</span>
               </a>
-              <a className="share-option" href={twitterHref} target="_blank" rel="noopener noreferrer" onClick={() => setShareOpen(false)}>
+              <a className="share-option" href={twitterHref} target="_blank" rel="noopener noreferrer" onClick={() => { recordShare(); setShareOpen(false); }}>
                 <span className="share-opt-icon" aria-hidden>𝕏</span>
                 <span>X / Twitter</span>
               </a>
